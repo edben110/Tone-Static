@@ -210,13 +210,19 @@ export default function Player() {
                   const trackId = node.value.id;
                   items.push(
                     <li key={trackId} className={isCurrent ? "active" : ""}>
-                      {index + 1}. {node.value.name} -- {node.value.artist_name}{" "}
-                      {node.value.duration && <span>({formatTime(node.value.duration)})</span>}
-                      <button onClick={() => node && playNode(node)}>
-                        {isCurrent ? "⏸ En reproducción" : "▶ Reproducir"}
-                      </button>
-                      <button onClick={() => removeFromPlaylist(trackId)}>Eliminar</button>
+                      <span className="track-info">
+                        {index + 1}. {node.value.name} -- {node.value.artist_name}{" "}
+                        {node.value.duration && <span>({formatTime(node.value.duration)})</span>}
+                      </span>
+
+                      <div className="button-group">
+                        <button onClick={() => node && playNode(node)}>
+                          {isCurrent ? "⏸ En reproducción" : "▶ Reproducir"}
+                        </button>
+                        <button onClick={() => removeFromPlaylist(trackId)}> Eliminar</button>
+                      </div>
                     </li>
+
                   );
                   node = node.next;
                   index++;

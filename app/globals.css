@@ -264,3 +264,7 @@ li {
 .track-info{
   margin-bottom: 6px;
 }
+li .button-group {
+  display: flex;
+  gap: 8px; /* espacio entre botones */
+}
