@@ -268,3 +268,91 @@ li .button-group {
   display: flex;
   gap: 8px; /* espacio entre botones */
 }
+/* ==== Fondo CRT Retro ==== */
+body {
+  background-color: #000;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Capa con líneas horizontales tipo CRT */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 229, 255, 0.1) 0px,
+    rgba(0, 229, 255, 0.05) 2px,
+    transparent 3px,
+    transparent 4px
+  );
+  animation: crt-scan 0.08s linear infinite;
+  z-index: 999;
+}
+
+/* Glow y ligero blur simulando tubo */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(0, 229, 255, 0.15) 0%, transparent 70%);
+  mix-blend-mode: screen;
+  filter: blur(2px);
+  z-index: 998;
+}
+
+/* Animación de barrido */
+@keyframes crt-scan {
+  0% { opacity: 0.2; }
+  50% { opacity: 0.35; }
+  100% { opacity: 0.2; }
+}
+
+/* Pequeño parpadeo general */
+@keyframes crt-flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.97; }
+}
+body {
+  animation: crt-flicker 0.12s infinite;
+}
+/* ==== Curvatura Bombé CRT ==== */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: radial-gradient(circle at center, rgba(0, 229, 255, 0.1) 0%, transparent 70%);
+  mix-blend-mode: screen;
+  filter: blur(2px);
+  z-index: 998;
+}
+
+/* Nueva capa para la distorsión tipo CRT curvo */
+.crt-warp {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 997;
+  background: rgba(0, 0, 0, 0); /* transparente */
+  transform: scale(1.02, 1.05); /* hace que se vea curvada */
+  border-radius: 2% / 1%; /* curva sutil en las esquinas */
+  box-shadow: inset 0 0 60px rgba(0, 229, 255, 0.08), 
+              inset 0 0 120px rgba(0, 229, 255, 0.05);
+  backdrop-filter: contrast(1.2) brightness(1.05);
+}
