@@ -217,7 +217,7 @@ export default function Player() {
 
                       <div className="button-group">
                         <button onClick={() => node && playNode(node)}>
-                          {isCurrent ? "⏸ En reproducción" : "▶ Reproducir"}
+                          {isCurrent ? "⏸ En reproducción" : "En lista"}
                         </button>
                         <button onClick={() => removeFromPlaylist(trackId)}> Eliminar</button>
                       </div>
