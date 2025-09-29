@@ -13,45 +13,72 @@ const formatTime = (timeInSeconds: number): string => {
   return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 };
 
+// Función para obtener duración de un track
+async function getTrackDuration(url: string): Promise<number> {
+  return new Promise((resolve) => {
+    const audio = new Audio(url);
+    audio.addEventListener("loadedmetadata", () => resolve(audio.duration));
+  });
+}
+
 export default function Player() {
   const [query, setQuery] = useState("");
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [currentNode, setCurrentNode] = useState<Node<Track> | null>(null);
+  const [tracks, setTracks] = useState<(Track & { duration: number })[]>([]);
+  const [currentNode, setCurrentNode] = useState<Node<Track & { duration: number }> | null>(null);
   const [loop, setLoop] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const playlistRef = useRef(new DoubleLinkedList<Track>());
+  const playlistRef = useRef(new DoubleLinkedList<Track & { duration: number }>());
   const [, forceUpdate] = useState({});
 
   // ================= Funciones =================
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     const results = await searchTracks(query);
-    setTracks(results);
+
+    // Obtener duración de cada track
+    const resultsWithDuration = await Promise.all(
+      results.map(async (track) => {
+        const duration = track.audio ? await getTrackDuration(track.audio) : 0;
+        return { ...track, duration };
+      })
+    );
+
+    setTracks(resultsWithDuration);
   }
 
-  function addToPlaylist(track: Track, autoPlay = false) {
-    const node = playlistRef.current.push(track);
+  function addToPlaylist(track: Track & { duration: number }, autoPlay = false) {
+    // Evitar duplicados por id
+    let exists = false;
+    let node = playlistRef.current.head;
+    while (node) {
+      if (node.value.id === track.id) {
+        exists = true;
+        break;
+      }
+      node = node.next;
+    }
+    if (exists) return;
+
+    const newNode = playlistRef.current.push(track);
     forceUpdate({});
-    if (!currentNode || autoPlay) playNode(node);
-    return node;
+    if (!currentNode || autoPlay) playNode(newNode);
+    return newNode;
   }
 
-  function playNode(node: Node<Track>) {
-    if (!node) return; // <-- Protección contra null
+  function playNode(node: Node<Track & { duration: number }>) {
+    if (!node) return;
     setCurrentNode(node);
     if (!audioRef.current) audioRef.current = new Audio();
     const audioEl = audioRef.current;
 
     audioEl.src = node.value.audio;
     audioEl.loop = loop;
-    audioEl
-      .play()
-      .then(() => setIsPlaying(true))
-      .catch((err) => console.error("Error al reproducir:", err));
+    audioEl.play().then(() => setIsPlaying(true)).catch(console.error);
 
     audioEl.onended = () => {
       if (loop) playNode(node);
@@ -77,6 +104,7 @@ export default function Player() {
       audioRef.current.currentTime = 0;
       setIsPlaying(false);
       setProgress(0);
+      setCurrentTime(0);
     }
   }
 
@@ -90,9 +118,8 @@ export default function Player() {
 
   function updateProgress() {
     if (audioRef.current) {
-      setProgress(
-        (audioRef.current.currentTime / audioRef.current.duration) * 100
-      );
+      setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
+      setCurrentTime(audioRef.current.currentTime);
       setDuration(audioRef.current.duration);
     }
   }
@@ -108,13 +135,28 @@ export default function Player() {
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      const localTrack: Track = {
+      const localTrack: Track & { duration: number } = {
         id: file.name,
         name: file.name,
         artist_name: "Local",
         audio: url,
+        duration: 0,
       };
       addToPlaylist(localTrack, true);
+    }
+  }
+
+  function removeFromPlaylist(id: string) {
+    let node = playlistRef.current.head;
+    while (node) {
+      if (node.value.id === id) {
+        // Si es la canción en reproducción, parar
+        if (currentNode?.value.id === id) stopSong();
+        playlistRef.current.remove(node);
+        forceUpdate({});
+        break;
+      }
+      node = node.next;
     }
   }
 
@@ -142,16 +184,10 @@ export default function Player() {
               <li key={track.id}>
                 <span className="track-info">
                   <strong>{track.name}</strong> -- {track.artist_name}{" "}
-                  {track.audio && audioRef.current && (
-                    <span>
-                      ({formatTime(audioRef.current.duration)})
-                    </span>
-                  )}
+                  {track.duration && <span>({formatTime(track.duration)})</span>}
                 </span>
                 <div className="opt">
-                  <button onClick={() => addToPlaylist(track, true)}>
-                    ▶ Reproducir
-                  </button>
+                  <button onClick={() => addToPlaylist(track, true)}>▶ Reproducir</button>
                   <button onClick={() => addToPlaylist(track)}>+ Añadir</button>
                 </div>
               </li>
@@ -169,22 +205,16 @@ export default function Player() {
                 let node = playlistRef.current.head;
                 let index = 0;
                 while (node) {
+                  const isCurrent = currentNode?.value.id === node.value.id;
+                  const trackId = node.value.id; // Evita errores de scope
                   items.push(
-                    <li
-                      key={node.value.id}
-                      className={
-                        currentNode?.value.id === node.value.id ? "active" : ""
-                      }
-                    >
+                    <li key={trackId} className={isCurrent ? "active" : ""}>
                       {index + 1}. {node.value.name} -- {node.value.artist_name}{" "}
-                      {audioRef.current && (
-                        <span>({formatTime(audioRef.current.duration)})</span>
-                      )}
-                      <button onClick={() => node && playNode(node)}>
-                        {currentNode?.value.id === node.value.id
-                          ? "|| En reproducción"
-                          : "> Reproducir"}
+                      {node.value.duration && <span>({formatTime(node.value.duration)})</span>}
+                      <button onClick={() => playNode(node)}>
+                        {isCurrent ? "⏸ En reproducción" : "▶ Reproducir"}
                       </button>
+                      <button onClick={() => removeFromPlaylist(trackId)}> Eliminar</button>
                     </li>
                   );
                   node = node.next;
@@ -205,8 +235,7 @@ export default function Player() {
           <p>
             {currentNode ? (
               <>
-                <strong>{currentNode.value.name}</strong> --{" "}
-                {currentNode.value.artist_name}
+                <strong>{currentNode.value.name}</strong> -- {currentNode.value.artist_name}
               </>
             ) : (
               "Ninguna canción seleccionada"
@@ -223,13 +252,9 @@ export default function Player() {
             <div className="progress" style={{ width: `${progress}%` }}></div>
           </div>
 
+          {/* Tiempo actual / duración total */}
           <div className="time">
-            <span>
-              {audioRef.current
-                ? formatTime(audioRef.current.currentTime)
-                : "0:00"}
-            </span>
-            <span>{formatTime(duration)}</span>
+            <span>{formatTime(currentTime)}</span> / <span>{formatTime(duration)}</span>
           </div>
 
           <div className="controls">
@@ -244,28 +269,14 @@ export default function Player() {
                 />
               </label>
             </div>
-            <button onClick={playPrev} disabled={!currentNode?.prev}>
-              ⏮
-            </button>
-            <button onClick={togglePlayPause} disabled={!currentNode}>
-              {isPlaying ? "⏸" : "▶"}
-            </button>
-            <button onClick={stopSong} disabled={!currentNode}>
-              ⏹
-            </button>
-            <button onClick={playNext} disabled={!currentNode?.next}>
-              ⏭
-            </button>
-            <button onClick={() => setLoop(!loop)}>
-              {loop ? "Loop ON" : "Loop OFF"}
-            </button>
+            <button onClick={playPrev} disabled={!currentNode?.prev}>⏮</button>
+            <button onClick={togglePlayPause} disabled={!currentNode}>{isPlaying ? "⏸" : "▶"}</button>
+            <button onClick={stopSong} disabled={!currentNode}>⏹</button>
+            <button onClick={playNext} disabled={!currentNode?.next}>⏭</button>
+            <button onClick={() => setLoop(!loop)}>{loop ? "Loop ON" : "Loop OFF"}</button>
           </div>
 
-          <audio
-            ref={audioRef}
-            onTimeUpdate={updateProgress}
-            style={{ display: "none" }}
-          />
+          <audio ref={audioRef} onTimeUpdate={updateProgress} style={{ display: "none" }} />
         </div>
       </div>
     </div>
