@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { searchTracks } from "../lib/jamendo";
+import { searchTracks, Track } from "../lib/jamendo";
 import { DoubleLinkedList, Node } from "../lib/DoubleLinkedList";
 import "../app/globals.css"; // Importamos el CSS Dead Space
 
@@ -13,15 +13,7 @@ const formatTime = (timeInSeconds: number): string => {
   return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 };
 
-interface Track {
-  id: string;
-  name: string;
-  artist_name: string;
-  audio: string;
-}
-
 export default function Player() {
-  // ================= Estados =================
   const [query, setQuery] = useState("");
   const [tracks, setTracks] = useState<Track[]>([]);
   const [currentNode, setCurrentNode] = useState<Node<Track> | null>(null);
@@ -30,7 +22,6 @@ export default function Player() {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // ================= Refs =================
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playlistRef = useRef(new DoubleLinkedList<Track>());
   const [, forceUpdate] = useState({});
@@ -39,7 +30,7 @@ export default function Player() {
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     const results = await searchTracks(query);
-    setTracks(results);
+    setTracks(results); // Ahora tipos coinciden
   }
 
   function addToPlaylist(track: Track, autoPlay = false) {
@@ -131,7 +122,6 @@ export default function Player() {
     <div className="player-container">
       <h1>Tone Static</h1>
 
-      {/* Buscador */}
       <form onSubmit={handleSearch} className="search-form">
         <input
           type="text"
@@ -142,9 +132,7 @@ export default function Player() {
         <button type="submit">Buscar</button>
       </form>
 
-      {/* Layout en columnas */}
       <div className="lists-container">
-        {/* Resultados */}
         <div className="results">
           <h3>Resultados</h3>
           <ul>
@@ -157,16 +145,13 @@ export default function Player() {
                   <button onClick={() => addToPlaylist(track, true)}>
                     ▶ Reproducir
                   </button>
-                  <button onClick={() => addToPlaylist(track)}>
-                    + Añadir
-                  </button>
+                  <button onClick={() => addToPlaylist(track)}>+ Añadir</button>
                 </div>
               </li>
             ))}
           </ul>
         </div>
 
-        {/* Playlist */}
         <div className="playlist">
           <h3>Lista</h3>
           <ul>
@@ -183,8 +168,7 @@ export default function Player() {
                         currentNode?.value.id === node.value.id ? "active" : ""
                       }
                     >
-                      {index + 1}. {node.value.name} --{" "}
-                      {node.value.artist_name}
+                      {index + 1}. {node.value.name} -- {node.value.artist_name}
                       <button onClick={() => playNode(node)}>
                         {currentNode?.value.id === node.value.id
                           ? "|| En reproducción"
@@ -203,7 +187,7 @@ export default function Player() {
           </ul>
         </div>
       </div>
-      {/* Reproductor fijo */}
+
       <div className="player-bar">
         <div className="player-content">
           <p>
@@ -216,21 +200,17 @@ export default function Player() {
               "Ninguna canción seleccionada"
             )}
           </p>
-          {/* Espectro de sonido */}
+
           <div className="sound-spectrum">
             {Array.from({ length: 12 }).map((_, i) => (
-            <span key={i} className="bar"></span>
+              <span key={i} className="bar"></span>
             ))}
           </div>
-          {/* Barra de progreso */}
+
           <div className="progress-container" onClick={seek}>
-            <div
-              className="progress"
-              style={{ width: `${progress}%` }}
-            ></div>
+            <div className="progress" style={{ width: `${progress}%` }}></div>
           </div>
 
-          {/* Tiempo */}
           <div className="time">
             <span>
               {audioRef.current
@@ -240,14 +220,18 @@ export default function Player() {
             <span>{formatTime(duration)}</span>
           </div>
 
-          {/* Controles */}
           <div className="controls">
             <div className="upload">
-            <label className="upload-btn">
+              <label className="upload-btn">
                 Subir cancion
-                <input type="file"accept="audio/*" onChange={handleFileUpload} style={{ display: "none" }}/>
-            </label>
-        </div>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleFileUpload}
+                  style={{ display: "none" }}
+                />
+              </label>
+            </div>
             <button onClick={playPrev} disabled={!currentNode?.prev}>
               ⏮
             </button>
@@ -270,7 +254,6 @@ export default function Player() {
             onTimeUpdate={updateProgress}
             style={{ display: "none" }}
           />
-
         </div>
       </div>
     </div>

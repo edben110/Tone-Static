@@ -1,7 +1,7 @@
 // Usando un client_id de demostración para Jamendo
 const JAMENDO_CLIENT_ID = "036f0b37";
 
-// Definimos la interfaz para un track
+// Definimos la interfaz para un track de Jamendo
 interface JamendoTrack {
   id: number;
   name: string;
@@ -10,12 +10,20 @@ interface JamendoTrack {
   audiodownload?: string;
 }
 
-// Definimos la interfaz para la respuesta completa
+// Definimos la respuesta completa de Jamendo
 interface JamendoResponse {
   results: JamendoTrack[];
 }
 
-export async function searchTracks(query: string) {
+// Interfaz que coincide con tu Track de Player.tsx
+export interface Track {
+  id: string;
+  name: string;
+  artist_name: string;
+  audio: string;
+}
+
+export async function searchTracks(query: string): Promise<Track[]> {
   try {
     const res = await fetch(
       `https://api.jamendo.com/v3.0/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&limit=10&search=${query}`
@@ -23,11 +31,10 @@ export async function searchTracks(query: string) {
     if (!res.ok) throw new Error("Error al obtener canciones");
 
     const data: JamendoResponse = await res.json();
-    console.log("Resultados de búsqueda:", data);
 
-    // Transformar los resultados al formato que espera nuestra aplicación
+    // Transformar los resultados al formato Track esperado
     return (data.results || []).map((track) => ({
-      id: track.id,
+      id: track.id.toString(),  // Convertimos a string
       name: track.name,
       artist_name: track.artist_name,
       audio: track.audio || track.audiodownload || ''
