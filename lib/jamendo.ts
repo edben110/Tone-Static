@@ -1,7 +1,5 @@
-// Usando un client_id de demostración para Jamendo
 const JAMENDO_CLIENT_ID = "036f0b37";
 
-// Definimos la interfaz para un track de Jamendo
 interface JamendoTrack {
   id: number;
   name: string;
@@ -10,12 +8,10 @@ interface JamendoTrack {
   audiodownload?: string;
 }
 
-// Definimos la respuesta completa de Jamendo
 interface JamendoResponse {
   results: JamendoTrack[];
 }
 
-// Interfaz que coincide con tu Track de Player.tsx
 export interface Track {
   id: string;
   name: string;
@@ -32,9 +28,8 @@ export async function searchTracks(query: string): Promise<Track[]> {
 
     const data: JamendoResponse = await res.json();
 
-    // Transformar los resultados al formato Track esperado
     return (data.results || []).map((track) => ({
-      id: track.id.toString(),  // Convertimos a string
+      id: track.id.toString(),
       name: track.name,
       artist_name: track.artist_name,
       audio: track.audio || track.audiodownload || ''

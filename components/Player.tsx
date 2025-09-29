@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { searchTracks, Track } from "../lib/jamendo";
 import { DoubleLinkedList, Node } from "../lib/DoubleLinkedList";
-import "../app/globals.css"; // Importamos el CSS Dead Space
+import "../app/globals.css";
 
 // ================= Utils =================
 const formatTime = (timeInSeconds: number): string => {
@@ -26,11 +26,11 @@ export default function Player() {
   const playlistRef = useRef(new DoubleLinkedList<Track>());
   const [, forceUpdate] = useState({});
 
-  // ================= Funciones principales =================
+  // ================= Funciones =================
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     const results = await searchTracks(query);
-    setTracks(results); // Ahora tipos coinciden
+    setTracks(results);
   }
 
   function addToPlaylist(track: Track, autoPlay = false) {
@@ -41,6 +41,7 @@ export default function Player() {
   }
 
   function playNode(node: Node<Track>) {
+    if (!node) return; // <-- Protección contra null
     setCurrentNode(node);
     if (!audioRef.current) audioRef.current = new Audio();
     const audioEl = audioRef.current;
@@ -133,13 +134,19 @@ export default function Player() {
       </form>
 
       <div className="lists-container">
+        {/* Resultados */}
         <div className="results">
           <h3>Resultados</h3>
           <ul>
             {tracks.map((track) => (
               <li key={track.id}>
                 <span className="track-info">
-                  <strong>{track.name}</strong> -- {track.artist_name}
+                  <strong>{track.name}</strong> -- {track.artist_name}{" "}
+                  {track.audio && audioRef.current && (
+                    <span>
+                      ({formatTime(audioRef.current.duration)})
+                    </span>
+                  )}
                 </span>
                 <div className="opt">
                   <button onClick={() => addToPlaylist(track, true)}>
@@ -152,6 +159,7 @@ export default function Player() {
           </ul>
         </div>
 
+        {/* Playlist */}
         <div className="playlist">
           <h3>Lista</h3>
           <ul>
@@ -168,8 +176,11 @@ export default function Player() {
                         currentNode?.value.id === node.value.id ? "active" : ""
                       }
                     >
-                      {index + 1}. {node.value.name} -- {node.value.artist_name}
-                      <button onClick={() => playNode(node)}>
+                      {index + 1}. {node.value.name} -- {node.value.artist_name}{" "}
+                      {audioRef.current && (
+                        <span>({formatTime(audioRef.current.duration)})</span>
+                      )}
+                      <button onClick={() => node && playNode(node)}>
                         {currentNode?.value.id === node.value.id
                           ? "|| En reproducción"
                           : "> Reproducir"}
@@ -188,6 +199,7 @@ export default function Player() {
         </div>
       </div>
 
+      {/* Barra de reproducción */}
       <div className="player-bar">
         <div className="player-content">
           <p>
@@ -223,7 +235,7 @@ export default function Player() {
           <div className="controls">
             <div className="upload">
               <label className="upload-btn">
-                Subir cancion
+                Subir canción
                 <input
                   type="file"
                   accept="audio/*"
