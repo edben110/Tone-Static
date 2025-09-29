@@ -52,7 +52,7 @@ export default function Player() {
   }
 
   function addToPlaylist(track: Track & { duration: number }, autoPlay = false) {
-    // Evitar duplicados por id
+    // Evita duplicados
     let exists = false;
     let node = playlistRef.current.head;
     while (node) {
@@ -135,14 +135,16 @@ export default function Player() {
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      const localTrack: Track & { duration: number } = {
-        id: file.name,
-        name: file.name,
-        artist_name: "Local",
-        audio: url,
-        duration: 0,
-      };
-      addToPlaylist(localTrack, true);
+      getTrackDuration(url).then((duration) => {
+        const localTrack: Track & { duration: number } = {
+          id: file.name,
+          name: file.name,
+          artist_name: "Local",
+          audio: url,
+          duration,
+        };
+        addToPlaylist(localTrack, true);
+      });
     }
   }
 
@@ -150,7 +152,6 @@ export default function Player() {
     let node = playlistRef.current.head;
     while (node) {
       if (node.value.id === id) {
-        // Si es la canción en reproducción, parar
         if (currentNode?.value.id === id) stopSong();
         playlistRef.current.remove(node);
         forceUpdate({});
@@ -206,15 +207,15 @@ export default function Player() {
                 let index = 0;
                 while (node) {
                   const isCurrent = currentNode?.value.id === node.value.id;
-                  const trackId = node.value.id; // Evita errores de scope
+                  const trackId = node.value.id;
                   items.push(
                     <li key={trackId} className={isCurrent ? "active" : ""}>
                       {index + 1}. {node.value.name} -- {node.value.artist_name}{" "}
                       {node.value.duration && <span>({formatTime(node.value.duration)})</span>}
-                      <button onClick={() => playNode(node)}>
+                      <button onClick={() => node && playNode(node)}>
                         {isCurrent ? "⏸ En reproducción" : "▶ Reproducir"}
                       </button>
-                      <button onClick={() => removeFromPlaylist(trackId)}> Eliminar</button>
+                      <button onClick={() => removeFromPlaylist(trackId)}>Eliminar</button>
                     </li>
                   );
                   node = node.next;
@@ -252,7 +253,6 @@ export default function Player() {
             <div className="progress" style={{ width: `${progress}%` }}></div>
           </div>
 
-          {/* Tiempo actual / duración total */}
           <div className="time">
             <span>{formatTime(currentTime)}</span> / <span>{formatTime(duration)}</span>
           </div>
