@@ -60,4 +60,53 @@ export class DoubleLinkedList<T> {
     }
     return arr;
   }
+    move(fromIndex: number, toIndex: number): void {
+    if (
+      fromIndex < 0 ||
+      fromIndex >= this.length ||
+      toIndex < 0 ||
+      toIndex >= this.length
+    ) {
+      return; // índices inválidos
+    }
+    if (fromIndex === toIndex) return;
+
+    // Buscar el nodo en fromIndex
+    let current = this.head;
+    let i = 0;
+    while (current && i < fromIndex) {
+      current = current.next;
+      i++;
+    }
+    if (!current) return;
+
+    // Quitar el nodo de su posición
+    this.remove(current);
+
+    // Insertar en nueva posición
+    if (toIndex === 0) {
+      // Insertar al inicio
+      current.next = this.head;
+      if (this.head) this.head.prev = current;
+      this.head = current;
+      if (!this.tail) this.tail = current;
+    } else {
+      // Buscar la posición destino
+      let target = this.head;
+      let j = 0;
+      while (target && j < toIndex - 1) {
+        target = target.next;
+        j++;
+      }
+      if (!target) return;
+
+      current.next = target.next;
+      current.prev = target;
+      if (target.next) target.next.prev = current;
+      target.next = current;
+      if (target === this.tail) this.tail = current;
+    }
+    this.length++;
+  }
+
 }

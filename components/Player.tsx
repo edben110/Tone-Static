@@ -1,3 +1,4 @@
+// js/tone-static/components/Player.tsx
 "use client";
 
 import { useState, useRef } from "react";
@@ -30,14 +31,19 @@ export default function Player() {
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [loadingSearch, setLoadingSearch] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playlistRef = useRef(new DoubleLinkedList<Track & { duration: number }>());
   const [, forceUpdate] = useState({});
 
+  // estado para drag & drop
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+
   // ================= Funciones =================
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+    setLoadingSearch(true);
     const results = await searchTracks(query);
 
     // Obtener duración de cada track
@@ -49,6 +55,7 @@ export default function Player() {
     );
 
     setTracks(resultsWithDuration);
+    setLoadingSearch(false);
   }
 
   function addToPlaylist(track: Track & { duration: number }, autoPlay = false) {
@@ -161,19 +168,72 @@ export default function Player() {
     }
   }
 
+  // ================= Drag & Drop =================
+  function handleDragStart(e: React.DragEvent<HTMLLIElement>, index: number) {
+    setDragIndex(index);
+    e.dataTransfer.setData("text/plain", index.toString());
+  }
+
+  function handleDragOver(e: React.DragEvent<HTMLLIElement>) {
+    e.preventDefault(); // necesario para permitir el drop
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLLIElement>, dropIndex: number) {
+    e.preventDefault();
+    const data = e.dataTransfer.getData("text/plain");
+    const fromIndex = data ? parseInt(data, 10) : (dragIndex ?? -1);
+
+    if (fromIndex < 0 || fromIndex === dropIndex || isNaN(fromIndex)) {
+      setDragIndex(null);
+      return;
+    }
+
+    const arr = playlistRef.current.toArray();
+    const temp = arr[fromIndex];
+    arr[fromIndex] = arr[dropIndex];
+    arr[dropIndex] = temp;
+
+    const currentId = currentNode?.value.id;
+    const newList = new DoubleLinkedList<Track & { duration: number }>();
+    arr.forEach((track) => newList.push(track));
+    playlistRef.current = newList;
+
+    if (currentId) {
+      let node = playlistRef.current.head;
+      while (node && node.value.id !== currentId) {
+        node = node.next;
+      }
+      setCurrentNode(node ?? null);
+    }
+
+    setDragIndex(null);
+    forceUpdate({});
+  }
+
   // ================= UI =================
   return (
     <div className="player-container">
       <h1>Tone Static</h1>
 
       <form onSubmit={handleSearch} className="search-form">
+        {/* Barra de espectros al lado izquierdo del input */}
+        {loadingSearch && (
+          <div className="sound-spectrum" aria-hidden="true" style={{ marginRight: 8 }}>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <span key={i} className="bar"></span>
+            ))}
+          </div>
+        )}
+
         <input
           type="text"
           placeholder="Buscar en Jamendo..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <button type="submit">Buscar</button>
+        <button type="submit" disabled={loadingSearch}>
+          Buscar
+        </button>
       </form>
 
       <div className="lists-container">
@@ -209,7 +269,14 @@ export default function Player() {
                   const isCurrent = currentNode?.value.id === node.value.id;
                   const trackId = node.value.id;
                   items.push(
-                    <li key={trackId} className={isCurrent ? "active" : ""}>
+                    <li
+                      key={trackId}
+                      className={isCurrent ? "active" : ""}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, index)}
+                    >
                       <span className="track-info">
                         {index + 1}. {node.value.name} -- {node.value.artist_name}{" "}
                         {node.value.duration && <span>({formatTime(node.value.duration)})</span>}
@@ -222,7 +289,6 @@ export default function Player() {
                         <button onClick={() => removeFromPlaylist(trackId)}> Eliminar</button>
                       </div>
                     </li>
-
                   );
                   node = node.next;
                   index++;
@@ -249,11 +315,7 @@ export default function Player() {
             )}
           </p>
 
-          <div className="sound-spectrum">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <span key={i} className="bar"></span>
-            ))}
-          </div>
+          {/* Quitamos la barra de espectros de aquí */}
 
           <div className="progress-container" onClick={seek}>
             <div className="progress" style={{ width: `${progress}%` }}></div>
@@ -276,7 +338,9 @@ export default function Player() {
               </label>
             </div>
             <button onClick={playPrev} disabled={!currentNode?.prev}>⏮</button>
-            <button onClick={togglePlayPause} disabled={!currentNode}>{isPlaying ? "⏸" : "▶"}</button>
+            <button onClick={togglePlayPause} disabled={!currentNode}>
+              {isPlaying ? "⏸" : "▶"}
+            </button>
             <button onClick={stopSong} disabled={!currentNode}>⏹</button>
             <button onClick={playNext} disabled={!currentNode?.next}>⏭</button>
             <button onClick={() => setLoop(!loop)}>{loop ? "Loop ON" : "Loop OFF"}</button>
