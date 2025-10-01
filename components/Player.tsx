@@ -25,6 +25,7 @@ async function getTrackDuration(url: string): Promise<number> {
 export default function Player() {
   const [query, setQuery] = useState("");
   const [tracks, setTracks] = useState<(Track & { duration: number })[]>([]);
+  const [playlist, setPlaylist] = useState<(Track & { duration: number })[]>([]);
   const [currentNode, setCurrentNode] = useState<Node<Track & { duration: number }> | null>(null);
   const [loop, setLoop] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -35,9 +36,6 @@ export default function Player() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playlistRef = useRef(new DoubleLinkedList<Track & { duration: number }>());
-  const [, forceUpdate] = useState({});
-
-  // estado para drag & drop
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   // ================= Funciones =================
@@ -46,7 +44,6 @@ export default function Player() {
     setLoadingSearch(true);
     const results = await searchTracks(query);
 
-    // Obtener duración de cada track
     const resultsWithDuration = await Promise.all(
       results.map(async (track) => {
         const duration = track.audio ? await getTrackDuration(track.audio) : 0;
@@ -58,8 +55,11 @@ export default function Player() {
     setLoadingSearch(false);
   }
 
+  function syncPlaylist() {
+    setPlaylist(playlistRef.current.toArray());
+  }
+
   function addToPlaylist(track: Track & { duration: number }, autoPlay = false) {
-    // Evita duplicados
     let exists = false;
     let node = playlistRef.current.head;
     while (node) {
@@ -71,8 +71,9 @@ export default function Player() {
     }
     if (exists) return;
 
-    const newNode = playlistRef.current.push(track);
-    forceUpdate({});
+    const newNode = playlistRef.current.append(track);
+    syncPlaylist();
+
     if (!currentNode || autoPlay) playNode(newNode);
     return newNode;
   }
@@ -160,8 +161,8 @@ export default function Player() {
     while (node) {
       if (node.value.id === id) {
         if (currentNode?.value.id === id) stopSong();
-        playlistRef.current.remove(node);
-        forceUpdate({});
+        playlistRef.current.removeNode(node);
+        syncPlaylist();
         break;
       }
       node = node.next;
@@ -175,7 +176,7 @@ export default function Player() {
   }
 
   function handleDragOver(e: React.DragEvent<HTMLLIElement>) {
-    e.preventDefault(); // necesario para permitir el drop
+    e.preventDefault();
   }
 
   function handleDrop(e: React.DragEvent<HTMLLIElement>, dropIndex: number) {
@@ -188,16 +189,10 @@ export default function Player() {
       return;
     }
 
-    const arr = playlistRef.current.toArray();
-    const temp = arr[fromIndex];
-    arr[fromIndex] = arr[dropIndex];
-    arr[dropIndex] = temp;
+    playlistRef.current.move(fromIndex, dropIndex);
+    syncPlaylist();
 
     const currentId = currentNode?.value.id;
-    const newList = new DoubleLinkedList<Track & { duration: number }>();
-    arr.forEach((track) => newList.push(track));
-    playlistRef.current = newList;
-
     if (currentId) {
       let node = playlistRef.current.head;
       while (node && node.value.id !== currentId) {
@@ -207,7 +202,6 @@ export default function Player() {
     }
 
     setDragIndex(null);
-    forceUpdate({});
   }
 
   // ================= UI =================
@@ -216,7 +210,6 @@ export default function Player() {
       <h1>Tone Static</h1>
 
       <form onSubmit={handleSearch} className="search-form">
-        {/* Barra de espectros al lado izquierdo del input */}
         {loadingSearch && (
           <div className="sound-spectrum" aria-hidden="true" style={{ marginRight: 8 }}>
             {Array.from({ length: 12 }).map((_, i) => (
@@ -260,41 +253,38 @@ export default function Player() {
         <div className="playlist">
           <h3>Lista</h3>
           <ul>
-            {playlistRef.current.length > 0 ? (
-              (() => {
-                const items: React.ReactElement[] = [];
-                let node = playlistRef.current.head;
-                let index = 0;
-                while (node) {
-                  const isCurrent = currentNode?.value.id === node.value.id;
-                  const trackId = node.value.id;
-                  items.push(
-                    <li
-                      key={trackId}
-                      className={isCurrent ? "active" : ""}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, index)}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, index)}
-                    >
-                      <span className="track-info">
-                        {index + 1}. {node.value.name} -- {node.value.artist_name}{" "}
-                        {node.value.duration && <span>({formatTime(node.value.duration)})</span>}
-                      </span>
+            {playlist.length > 0 ? (
+              playlist.map((track, index) => {
+                const isCurrent = currentNode?.value.id === track.id;
+                return (
+                  <li
+                    key={track.id}
+                    className={isCurrent ? "active" : ""}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, index)}
+                  >
+                    <span className="track-info">
+                      {index + 1}. {track.name} -- {track.artist_name}{" "}
+                      {track.duration && <span>({formatTime(track.duration)})</span>}
+                    </span>
 
-                      <div className="button-group">
-                        <button onClick={() => node && playNode(node)}>
-                          {isCurrent ? "⏸ En reproducción" : "En lista"}
-                        </button>
-                        <button onClick={() => removeFromPlaylist(trackId)}> Eliminar</button>
-                      </div>
-                    </li>
-                  );
-                  node = node.next;
-                  index++;
-                }
-                return items;
-              })()
+                    <div className="button-group">
+                      <button
+                        onClick={() => {
+                          let node = playlistRef.current.head;
+                          while (node && node.value.id !== track.id) node = node.next;
+                          if (node) playNode(node);
+                        }}
+                      >
+                        {isCurrent ? "⏸ En reproducción" : "En lista"}
+                      </button>
+                      <button onClick={() => removeFromPlaylist(track.id)}>Eliminar</button>
+                    </div>
+                  </li>
+                );
+              })
             ) : (
               <p>No hay canciones en la lista.</p>
             )}
@@ -314,8 +304,6 @@ export default function Player() {
               "Ninguna canción seleccionada"
             )}
           </p>
-
-          {/* Quitamos la barra de espectros de aquí */}
 
           <div className="progress-container" onClick={seek}>
             <div className="progress" style={{ width: `${progress}%` }}></div>
@@ -352,3 +340,4 @@ export default function Player() {
     </div>
   );
 }
+
