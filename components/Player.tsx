@@ -1,9 +1,10 @@
 // js/tone-static/components/Player.tsx
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react"; // <-- añado useEffect
 import { searchTracks, Track } from "../lib/jamendo";
 import { DoubleLinkedList, Node } from "../lib/DoubleLinkedList";
+import { get, set } from "idb-keyval"; // <-- importo IndexedDB helper
 import "../app/globals.css";
 
 // ================= Utils =================
@@ -37,6 +38,27 @@ export default function Player() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playlistRef = useRef(new DoubleLinkedList<Track & { duration: number }>());
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+
+  // ================= Persistencia con IndexedDB =================
+  // Cargar playlist al iniciar
+  useEffect(() => {
+    (async () => {
+      const savedPlaylist = await get<(Track & { duration: number })[]>("playlist");
+      if (savedPlaylist && savedPlaylist.length > 0) {
+        savedPlaylist.forEach((track) => playlistRef.current.append(track));
+        setPlaylist(savedPlaylist);
+      }
+    })();
+  }, []);
+
+  // Guardar playlist cada vez que cambie
+  useEffect(() => {
+    if (playlist.length > 0) {
+      set("playlist", playlist).catch(console.error);
+    } else {
+      set("playlist", []); // limpiar si está vacía
+    }
+  }, [playlist]);
 
   // ================= Funciones =================
   async function handleSearch(e: React.FormEvent) {
@@ -223,6 +245,7 @@ export default function Player() {
           placeholder="Buscar en Jamendo..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          className="w-full p-8 pr-100"
         />
         <button type="submit" disabled={loadingSearch}>
           Buscar
@@ -278,7 +301,7 @@ export default function Player() {
                           if (node) playNode(node);
                         }}
                       >
-                        {isCurrent ? "⏸ En reproducción" : "En lista"}
+                        {isCurrent ? "⏸ En reproducción" : "Reproducir"}
                       </button>
                       <button onClick={() => removeFromPlaylist(track.id)}>Eliminar</button>
                     </div>
