@@ -20,7 +20,7 @@ form {
   display: flex;
   align-items: center; /* alinea espectro con input */
   gap: 0.5rem;
-  max-width: 600px;
+  max-width: 500px;
   margin: 1rem auto;
 }
 
@@ -210,7 +210,7 @@ button:disabled {
 
 /* ==== Espectro de sonido HUD (solo búsqueda) ==== */
 .sound-spectrum {
-  right: 0;
+  left: 10;
   display: flex;
   align-items: flex-end;
   gap: 4px;
@@ -224,6 +224,7 @@ button:disabled {
   border-radius: 2px;
   animation: bounce 1s infinite ease-in-out;
   box-shadow: 0 0 6px rgba(255, 111, 0, 0.6);
+  align-items: start;
 }
 
 /* Animación aleatoria por barra */
@@ -371,3 +372,4 @@ body::after {
               inset 0 0 120px rgba(0, 229, 255, 0.05);
   backdrop-filter: contrast(1.2) brightness(1.05);
 }
+
